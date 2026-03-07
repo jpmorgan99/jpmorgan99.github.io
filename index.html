@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<!-- saved from url=(0047)file:///C:/Users/JPMor/Downloads/ip-lookup.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WHAT'S MY IP</title>
+  <link href="./index_files/css2" rel="stylesheet">
+  <style>
+    :root {
+      --green: #00ff88;
+      --green-dim: #00cc66;
+      --green-dark: #003322;
+      --bg: #030d06;
+      --border: #00ff8844;
+      --glow: 0 0 10px #00ff8888, 0 0 30px #00ff8833;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--green);
+      font-family: 'Share Tech Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Scanline overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.15) 2px,
+        rgba(0,0,0,0.15) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* Vignette */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.85) 100%);
+      pointer-events: none;
+      z-index: 99;
+    }
+
+    /* Grid background */
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      z-index: 0;
+      animation: gridPulse 8s ease-in-out infinite;
+    }
+
+    @keyframes gridPulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.6; }
+    }
+
+    .container {
+      position: relative;
+      z-index: 10;
+      width: 90%;
+      max-width: 640px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      animation: fadeDown 0.8s ease both;
+    }
+
+    .header .label {
+      font-size: 11px;
+      letter-spacing: 6px;
+      color: var(--green-dim);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    .header h1 {
+      font-family: 'Orbitron', monospace;
+      font-weight: 900;
+      font-size: clamp(28px, 6vw, 52px);
+      letter-spacing: 4px;
+      text-shadow: var(--glow);
+      line-height: 1.1;
+    }
+
+    /* Main panel */
+    .panel {
+      width: 100%;
+      border: 1px solid var(--green);
+      box-shadow: var(--glow), inset 0 0 30px rgba(0,255,136,0.03);
+      padding: 36px;
+      position: relative;
+      animation: fadeUp 0.8s ease 0.2s both;
+    }
+
+    .panel::before {
+      content: '[ NETWORK TERMINAL v2.1 ]';
+      position: absolute;
+      top: -10px;
+      left: 20px;
+      background: var(--bg);
+      padding: 0 10px;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--green-dim);
+    }
+
+    .panel::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      right: 20px;
+      width: 40px;
+      height: 2px;
+      background: var(--bg);
+    }
+
+    /* IP Display */
+    .ip-display {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .ip-label {
+      font-size: 10px;
+      letter-spacing: 5px;
+      color: var(--green-dim);
+      margin-bottom: 14px;
+      text-transform: uppercase;
+    }
+
+    .ip-value {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(22px, 5vw, 40px);
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-shadow: var(--glow);
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ip-value.loading {
+      font-size: 14px;
+      letter-spacing: 2px;
+      color: var(--green-dim);
+    }
+
+    .ip-value.error {
+      font-size: 14px;
+      color: #ff4444;
+      text-shadow: 0 0 10px #ff444488;
+    }
+
+    /* Blinking cursor */
+    .cursor {
+      display: inline-block;
+      width: 12px;
+      height: 28px;
+      background: var(--green);
+      margin-left: 6px;
+      vertical-align: middle;
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* Divider */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 20px 0;
+    }
+
+    /* Info grid */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .info-item {
+      padding: 14px;
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .info-item:hover {
+      border-color: var(--green);
+    }
+
+    .info-item::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 3px; height: 100%;
+      background: var(--green);
+      opacity: 0.4;
+    }
+
+    .info-key {
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: var(--green-dim);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .info-val {
+      font-size: 13px;
+      letter-spacing: 1px;
+      word-break: break-all;
+    }
+
+    .info-val.pending {
+      color: var(--green-dim);
+      font-style: italic;
+      font-size: 11px;
+    }
+
+    /* Button */
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    button {
+      flex: 1;
+      padding: 14px 20px;
+      background: transparent;
+      border: 1px solid var(--green);
+      color: var(--green);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    button::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--green);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    button:hover::before { opacity: 0.08; }
+    button:hover { box-shadow: var(--glow); letter-spacing: 4px; }
+    button:active { transform: scale(0.98); }
+
+    button.secondary {
+      border-color: var(--border);
+      color: var(--green-dim);
+      flex: 0 0 auto;
+      padding: 14px 16px;
+    }
+    button.secondary:hover { border-color: var(--green); color: var(--green); }
+
+    /* Log */
+    .log {
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--green-dim);
+      margin-top: 20px;
+      line-height: 1.8;
+      min-height: 56px;
+    }
+
+    .log-line { opacity: 0; animation: logAppear 0.3s ease forwards; }
+    .log-line.ok::before { content: '> '; color: var(--green); }
+    .log-line.info::before { content: '# '; }
+    .log-line.err::before { content: '! '; color: #ff4444; }
+
+    @keyframes logAppear {
+      from { opacity: 0; transform: translateX(-8px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Footer */
+    .footer {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: #00ff8833;
+      text-align: center;
+      animation: fadeUp 0.8s ease 0.4s both;
+    }
+
+    /* Animations */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .spin {
+      display: inline-block;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Copy toast */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--green);
+      color: var(--bg);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 3px;
+      padding: 10px 24px;
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      z-index: 200;
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+
+  <div class="container">
+    <div class="header">
+      <div class="label">Network Diagnostic Tool</div>
+      <h1>WHAT'S MY IP</h1>
+    </div>
+
+    <div class="panel">
+      <div class="ip-display">
+        <div class="ip-label">Your Public WAN IPv4 Address</div>
+        <div class="ip-value error" id="ipValue">LOOKUP FAILED</div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-key">ISP / Provider</div>
+          <div class="info-val pending" id="isp">Resolving...</div>
+        </div>
+        <div class="info-item">
+          <div class="info-key">Location</div>
+          <div class="info-val pending" id="location">Resolving...</div>
+        </div>
+        <div class="info-item">
+          <div class="info-key">Region / Timezone</div>
+          <div class="info-val pending" id="region">Resolving...</div>
+        </div>
+        <div class="info-item">
+          <div class="info-key">AS Number</div>
+          <div class="info-val pending" id="asn">Resolving...</div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button onclick="refresh()">⟳ &nbsp;Refresh Lookup</button>
+        <button class="secondary" title="Copy IP" onclick="copyIP()">⎘ Copy</button>
+      </div>
+
+      <div class="log" id="log"><div class="log-line ok" style="animation-delay: 0ms;">IP resolved: 173.79.162.113</div><div class="log-line info" style="animation-delay: 0ms;">Fetching network metadata...</div><div class="log-line err" style="animation-delay: 0ms;">Error: Failed to fetch</div><div class="log-line info" style="animation-delay: 0ms;">Check your connection and retry.</div></div>
+    </div>
+
+    <div class="footer">USING PUBLIC API &nbsp;·&nbsp; NO DATA STORED &nbsp;·&nbsp; NO TRACKING</div>
+  </div>
+
+  <div class="toast" id="toast">IP COPIED</div>
+
+  <script>
+    let currentIP = null;
+
+    function log(msg, type = 'info') {
+      const el = document.getElementById('log');
+      const line = document.createElement('div');
+      line.className = `log-line ${type}`;
+      line.textContent = msg;
+      line.style.animationDelay = '0ms';
+      el.appendChild(line);
+      // Keep last 4 lines
+      while (el.children.length > 4) el.removeChild(el.firstChild);
+    }
+
+    function setIP(ip) {
+      currentIP = ip;
+      const el = document.getElementById('ipValue');
+      el.className = 'ip-value';
+      el.innerHTML = ip + '<span class="cursor"></span>';
+    }
+
+    function setError(msg) {
+      const el = document.getElementById('ipValue');
+      el.className = 'ip-value error';
+      el.textContent = msg;
+    }
+
+    function setField(id, value) {
+      const el = document.getElementById(id);
+      el.textContent = value || '—';
+      el.className = 'info-val';
+    }
+
+    function setPending() {
+      ['isp', 'location', 'region', 'asn'].forEach(id => {
+        document.getElementById(id).textContent = 'Resolving...';
+        document.getElementById(id).className = 'info-val pending';
+      });
+      document.getElementById('log').innerHTML = '';
+      currentIP = null;
+    }
+
+    async function refresh() {
+      const ipEl = document.getElementById('ipValue');
+      ipEl.className = 'ip-value loading';
+      ipEl.innerHTML = '<span class="spin">◌</span>&nbsp;&nbsp;Probing network...';
+      setPending();
+
+      try {
+        log('Connecting to ipapi.co...', 'info');
+
+        // Step 1: Get IP from ipify (plain text, dead simple)
+        const ipRes = await fetch('https://api.ipify.org?format=json');
+        const ipData = await ipRes.json();
+        const ip = ipData.ip;
+
+        log(`IP resolved: ${ip}`, 'ok');
+        setIP(ip);
+
+        // Step 2: Get geo/ISP info
+        log('Fetching network metadata...', 'info');
+        const geoRes = await fetch(`https://ipapi.co/${ip}/json/`);
+        const geo = await geoRes.json();
+
+        if (geo.error) throw new Error(geo.reason || 'Geo lookup failed');
+
+        setField('isp', geo.org || geo.asn);
+        setField('location', [geo.city, geo.country_name].filter(Boolean).join(', '));
+        setField('region', [geo.region, geo.timezone].filter(Boolean).join(' · '));
+        setField('asn', geo.asn || '—');
+
+        log('All data fetched successfully.', 'ok');
+
+      } catch (err) {
+        setError('LOOKUP FAILED');
+        log('Error: ' + err.message, 'err');
+        log('Check your connection and retry.', 'info');
+      }
+    }
+
+    function copyIP() {
+      if (!currentIP) return;
+      navigator.clipboard.writeText(currentIP).then(() => {
+        const t = document.getElementById('toast');
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2000);
+      });
+    }
+
+    // Auto-run on load
+    refresh();
+  </script>
+
+
+</body></html>
